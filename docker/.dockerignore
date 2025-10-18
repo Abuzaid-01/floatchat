@@ -1,0 +1,6 @@
+# Docker ignore patterns
+__pycache__/
+*.py[cod]
+.env
+venv/
+.git/
