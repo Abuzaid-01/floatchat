@@ -155,6 +155,70 @@ class QueryProcessor:
             }
         
         return stats
+    
+
+# Add to QueryProcessor class
+
+def validate_query_safety(self, user_query: str) -> bool:
+    """Validate query is safe and appropriate"""
+    # Check for SQL injection attempts
+    dangerous_patterns = [
+        r';\s*DROP',
+        r';\s*DELETE',
+        r';\s*UPDATE',
+        r'UNION\s+SELECT',
+        r'--',
+        r'/\*.*\*/',
+    ]
+    
+    import re
+    for pattern in dangerous_patterns:
+        if re.search(pattern, user_query, re.IGNORECASE):
+            return False
+    
+    return True
+
+def get_query_suggestions(self, user_query: str) -> List[str]:
+    """Get query suggestions based on input"""
+    suggestions = []
+    
+    query_lower = user_query.lower()
+    
+    if 'temperature' in query_lower:
+        suggestions.append("Show temperature-depth profiles")
+        suggestions.append("Compare temperature across regions")
+    
+    if 'salinity' in query_lower:
+        suggestions.append("Analyze salinity distribution")
+        suggestions.append("Show T-S diagram")
+    
+    if any(region in query_lower for region in ['arabian', 'bengal', 'indian']):
+        suggestions.append("Show geographic distribution on map")
+        suggestions.append("Compare with other regions")
+    
+    return suggestions[:3]
+
+def log_query(self, user_query: str, sql_query: str, result_count: int, 
+              execution_time: float, success: bool):
+    """Log query to database for analytics"""
+    from database.models import QueryLog
+    
+    session = self.db_setup.get_session()
+    
+    try:
+        log = QueryLog(
+            user_query=user_query,
+            generated_sql=sql_query,
+            result_count=result_count,
+            execution_time=execution_time,
+            success=1 if success else 0
+        )
+        session.add(log)
+        session.commit()
+    except Exception as e:
+        print(f"Failed to log query: {e}")
+    finally:
+        session.close()    
 
 # Usage example
 if __name__ == "__main__":

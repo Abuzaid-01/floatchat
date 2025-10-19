@@ -11,6 +11,16 @@ class MapView:
     def render(self, df: pd.DataFrame):
         """Render map visualizations"""
         
+        # Check if dataframe has geographic columns
+        if 'latitude' not in df.columns or 'longitude' not in df.columns:
+            st.info("📍 Map visualization requires geographic data (latitude/longitude). This query result doesn't contain location information.")
+            return
+        
+        # Check if we have any valid lat/lon data
+        if df[['latitude', 'longitude']].isna().all().all():
+            st.info("📍 No valid geographic coordinates found in the results.")
+            return
+        
         # Visualization options
         st.sidebar.subheader("🗺️ Map Options")
         

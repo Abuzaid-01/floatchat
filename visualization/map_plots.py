@@ -32,8 +32,39 @@ class MapVisualizer:
         if df.empty:
             return self._create_empty_map(title)
         
-        # Prepare hover text
-        hover_text = self._create_hover_text(df)
+        # Check if color_by column exists, if not use default or first available numeric column
+        if color_by not in df.columns:
+            # Try to find a suitable numeric column
+            numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+            # Remove lat/lon from options
+            numeric_cols = [col for col in numeric_cols if col not in ['latitude', 'longitude', 'id']]
+            
+            if numeric_cols:
+                color_by = numeric_cols[0]
+            else:
+                # No numeric column available, create a simple map without coloring
+                return self._create_simple_location_map(df, title)
+        
+        # Build hover_data dictionary with only available columns
+        hover_data = {
+            'latitude': ':.2f',
+            'longitude': ':.2f'
+        }
+        
+        # Add color_by column to hover_data if it's numeric
+        if color_by in df.columns and pd.api.types.is_numeric_dtype(df[color_by]):
+            hover_data[color_by] = ':.2f'
+        
+        # Add other commonly useful columns if they exist
+        optional_cols = ['float_id', 'cycle_number', 'pressure', 'salinity', 'dissolved_oxygen']
+        for col in optional_cols:
+            if col in df.columns and col != color_by:
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    hover_data[col] = ':.2f'
+        
+        # Add timestamp separately (don't format it)
+        if 'timestamp' in df.columns and 'timestamp' != color_by:
+            hover_data['timestamp'] = True
         
         # Create scatter mapbox
         fig = px.scatter_mapbox(
@@ -42,11 +73,7 @@ class MapVisualizer:
             lon='longitude',
             color=color_by,
             size=[10] * len(df),  # Fixed size for visibility
-            hover_data={
-                'latitude': ':.2f',
-                'longitude': ':.2f',
-                color_by: ':.2f'
-            },
+            hover_data=hover_data,
             color_continuous_scale='Viridis',
             title=title,
             zoom=3
@@ -118,19 +145,98 @@ class MapVisualizer:
         # Create time bins (monthly)
         df['time_period'] = df[time_column].dt.to_period('M').astype(str)
         
+        # Find a suitable color column
+        color_col = None
+        if 'temperature' in df.columns:
+            color_col = 'temperature'
+        else:
+            numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+            numeric_cols = [col for col in numeric_cols if col not in ['latitude', 'longitude', 'id']]
+            if numeric_cols:
+                color_col = numeric_cols[0]
+        
+        # Build hover_data with available columns
+        hover_data = {'latitude': ':.2f', 'longitude': ':.2f'}
+        optional_cols = ['temperature', 'salinity', 'pressure', 'float_id', 'cycle_number', 'dissolved_oxygen']
+        for col in optional_cols:
+            if col in df.columns:
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    hover_data[col] = ':.2f'
+        
+        # Add timestamp separately
+        if 'timestamp' in df.columns:
+            hover_data['timestamp'] = True
+        
+        # Create map
+        if color_col:
+            fig = px.scatter_mapbox(
+                df,
+                lat='latitude',
+                lon='longitude',
+                animation_frame='time_period',
+                color=color_col,
+                size=[10] * len(df),
+                hover_data=hover_data,
+                color_continuous_scale='RdYlBu_r',
+                title=title,
+                zoom=3
+            )
+        else:
+            # No color column available
+            fig = px.scatter_mapbox(
+                df,
+                lat='latitude',
+                lon='longitude',
+                animation_frame='time_period',
+                size=[10] * len(df),
+                hover_data=hover_data,
+                title=title,
+                zoom=3
+            )
+        
+        fig.update_layout(
+            mapbox_style=self.default_mapbox_style,
+            height=600,
+            margin={"r": 0, "t": 40, "l": 0, "b": 0}
+        )
+        
+        return fig
+    
+    def _create_simple_location_map(self, df: pd.DataFrame, title: str) -> go.Figure:
+        """
+        Create a simple map showing locations without color coding.
+        Used when no numeric columns are available for coloring.
+        """
+        # Build hover_data dictionary with available columns
+        hover_data = {
+            'latitude': ':.2f',
+            'longitude': ':.2f'
+        }
+        
+        # Add other available columns, properly checking types
+        for col in df.columns:
+            if col not in ['latitude', 'longitude', 'id']:
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    hover_data[col] = ':.2f'
+                elif col != 'timestamp':  # Don't format timestamp
+                    hover_data[col] = True
+        
+        # Add timestamp separately
+        if 'timestamp' in df.columns:
+            hover_data['timestamp'] = True
+        
+        # Create scatter mapbox without color
         fig = px.scatter_mapbox(
             df,
             lat='latitude',
             lon='longitude',
-            animation_frame='time_period',
-            color='temperature',
             size=[10] * len(df),
-            hover_data=['latitude', 'longitude', 'temperature', 'salinity'],
-            color_continuous_scale='RdYlBu_r',
+            hover_data=hover_data,
             title=title,
             zoom=3
         )
         
+        # Update layout
         fig.update_layout(
             mapbox_style=self.default_mapbox_style,
             height=600,
