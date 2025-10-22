@@ -1,51 +1,94 @@
-# # # Add your project dependencies here
+# # # # Add your project dependencies here
+# # # # Core Dependencies
+# # # streamlit>=1.31.0
+# # # langchain>=0.1.9
+# # # langchain-community>=0.0.24
+# # # openai>=1.12.0
+# # # python-dotenv>=1.0.0
+
+# # # # Database
+# # # sqlalchemy>=2.0.27
+# # # psycopg2-binary>=2.9.9
+# # # alembic>=1.13.1
+
+# # # # Vector Store
+# # # faiss-cpu>=1.12.0
+# # # sentence-transformers>=2.3.1
+# # # chromadb>=0.4.22
+
+# # # # Data Processing
+# # # xarray>=2024.1.0
+# # # netCDF4>=1.6.5
+# # # pandas>=2.2.0
+# # # numpy>=1.26.3
+
+# # # # Visualization
+# # # plotly>=5.18.0
+# # # folium>=0.15.1
+# # # streamlit-folium>=0.17.0
+# # # matplotlib>=3.8.2
+
+# # # # API
+# # # fastapi>=0.109.2
+# # # uvicorn>=0.27.1
+# # # pydantic>=2.6.1
+
+# # # # Utilities
+# # # requests>=2.31.0
+# # # tqdm>=4.66.1
+# # # pyyaml>=6.0.1
+
 # # # Core Dependencies
-# # streamlit>=1.31.0
-# # langchain>=0.1.9
-# # langchain-community>=0.0.24
-# # openai>=1.12.0
-# # python-dotenv>=1.0.0
+# # streamlit==1.31.0
+# # langchain==0.1.9
+# # langchain-community==0.0.24
+# # openai==1.12.0
+# # google-generativeai>=0.3.0
+# # langchain-google-genai>=0.0.5
+# # python-dotenv==1.0.0
 
 # # # Database
-# # sqlalchemy>=2.0.27
-# # psycopg2-binary>=2.9.9
-# # alembic>=1.13.1
+# # sqlalchemy==2.0.27
+# # psycopg2-binary==2.9.9
+# # alembic==1.13.1
 
 # # # Vector Store
-# # faiss-cpu>=1.12.0
-# # sentence-transformers>=2.3.1
-# # chromadb>=0.4.22
+# # faiss-cpu==1.12.0
+# # sentence-transformers==2.3.1
+# # chromadb==0.4.22
 
 # # # Data Processing
-# # xarray>=2024.1.0
-# # netCDF4>=1.6.5
-# # pandas>=2.2.0
-# # numpy>=1.26.3
+# # xarray==2024.1.0
+# # netCDF4==1.6.5
+# # pandas==2.2.0
+# # numpy==1.26.3
 
 # # # Visualization
-# # plotly>=5.18.0
-# # folium>=0.15.1
-# # streamlit-folium>=0.17.0
-# # matplotlib>=3.8.2
+# # plotly==5.18.0
+# # folium==0.15.1
+# # streamlit-folium==0.17.0
+# # matplotlib==3.8.2
 
 # # # API
-# # fastapi>=0.109.2
-# # uvicorn>=0.27.1
-# # pydantic>=2.6.1
+# # fastapi==0.109.2
+# # uvicorn==0.27.1
+# # pydantic==2.6.1
 
 # # # Utilities
-# # requests>=2.31.0
-# # tqdm>=4.66.1
-# # pyyaml>=6.0.1
+# # requests==2.31.0
+# # tqdm==4.66.1
+# # pyyaml==6.0.1
 
 # # Core Dependencies
 # streamlit==1.31.0
+# python-dotenv==1.0.0
+
+# # LLM & AI
 # langchain==0.1.9
 # langchain-community==0.0.24
-# openai==1.12.0
-# google-generativeai>=0.3.0
-# langchain-google-genai>=0.0.5
-# python-dotenv==1.0.0
+# langchain-core==0.1.23
+# langchain-google-genai==2.0.10
+# google-generativeai==0.8.5
 
 # # Database
 # sqlalchemy==2.0.27
@@ -62,6 +105,7 @@
 # netCDF4==1.6.5
 # pandas==2.2.0
 # numpy==1.26.3
+# openpyxl==3.1.2
 
 # # Visualization
 # plotly==5.18.0
@@ -79,9 +123,17 @@
 # tqdm==4.66.1
 # pyyaml==6.0.1
 
-# Core Dependencies
+# # Development
+# pytest==8.0.0
+# black==24.1.1
+# flake8==7.0.0
+# Core Framework & UI
 streamlit==1.31.0
 python-dotenv==1.0.0
+plotly==5.18.0
+folium==0.15.1
+streamlit-folium==0.17.0
+matplotlib==3.8.2
 
 # LLM & AI
 langchain==0.1.9
@@ -94,36 +146,43 @@ google-generativeai==0.8.5
 sqlalchemy==2.0.27
 psycopg2-binary==2.9.9
 alembic==1.13.1
+pandas==2.2.0
 
-# Vector Store
+# Vector Store & Search
 faiss-cpu==1.12.0
 sentence-transformers==2.3.1
 chromadb==0.4.22
 
-# Data Processing
+# Data Processing & Analysis
 xarray==2024.1.0
 netCDF4==1.6.5
-pandas==2.2.0
 numpy==1.26.3
+scipy==1.12.0
 openpyxl==3.1.2
+scikit-learn==1.4.0
 
-# Visualization
-plotly==5.18.0
-folium==0.15.1
-streamlit-folium==0.17.0
-matplotlib==3.8.2
+# Advanced Analytics
+scipy==1.12.0
 
-# API
+# API & Backend
 fastapi==0.109.2
 uvicorn==0.27.1
 pydantic==2.6.1
+requests==2.31.0
 
 # Utilities
-requests==2.31.0
 tqdm==4.66.1
 pyyaml==6.0.1
+python-dateutil==2.8.2
 
-# Development
+# Development & Testing
 pytest==8.0.0
 black==24.1.1
 flake8==7.0.0
+
+# Optional: Data Formats
+pyarrow==14.0.1
+openpyxl==3.1.2
+
+# Performance
+cachetools==5.3.2
