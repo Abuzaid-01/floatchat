@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rag_engine.query_processor import QueryProcessor
-from rag_engine.sql_generator import SQLGenerator
+from rag_engine.sql_generator import AdvancedSQLGenerator
 from database.db_setup import DatabaseSetup
 from vector_store.vector_db import FAISSVectorStore
 import pandas as pd
@@ -27,7 +27,7 @@ class MCPToolServer:
     
     def __init__(self):
         self.query_processor = QueryProcessor()
-        self.sql_generator = SQLGenerator()
+        self.sql_generator = AdvancedSQLGenerator()
         self.db_setup = DatabaseSetup()
         self.vector_store = FAISSVectorStore()
         self.vector_store.load()

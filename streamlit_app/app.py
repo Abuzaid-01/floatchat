@@ -598,9 +598,12 @@ import pandas as pd
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
 
-# Add project root to path
-sys.path.append(str(Path(__file__).parent.parent))
+# Add project root to path FIRST (before any local imports)
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from streamlit_app.components.mcp_chat_interface import MCPChatInterface, render_mcp_capabilities
+from streamlit_app.components.advanced_viz_panel import AdvancedVizPanel
+from mcp_server.mcp_query_processor import mcp_query_processor
 from streamlit_app.components.chat_interface import ChatInterface
 from streamlit_app.components.map_view import MapView
 from streamlit_app.components.profile_viewer import ProfileViewer
@@ -839,11 +842,40 @@ class ProductionFloatChatApp:
     - Export capabilities
     """
     
+    # def __init__(self):
+    #     # Initialize session state
+    #     self.session_manager = SessionStateManager()
+    #     self.session_manager.initialize()
+        
+    #     # Initialize database
+    #     try:
+    #         self.db_setup = DatabaseSetup()
+    #         if not self.db_setup.test_connection():
+    #             st.error("🔴 Database connection failed. Please check configuration.")
+    #             st.stop()
+    #     except Exception as e:
+    #         st.error(f"🔴 Database initialization error: {e}")
+    #         st.stop()
+        
+    #     # Initialize components
+    #     try:
+    #         self.query_processor = QueryProcessor()
+    #         self.sidebar = Sidebar()
+    #         self.chat_interface = ChatInterface(self.query_processor)
+    #         self.map_view = MapView()
+    #         self.profile_viewer = ProfileViewer()
+    #     except Exception as e:
+    #         st.error(f"🔴 Component initialization error: {e}")
+    #         st.stop()
+        
+    #     # Analytics
+    #     self._init_analytics()
+    
     def __init__(self):
         # Initialize session state
         self.session_manager = SessionStateManager()
         self.session_manager.initialize()
-        
+    
         # Initialize database
         try:
             self.db_setup = DatabaseSetup()
@@ -854,19 +886,43 @@ class ProductionFloatChatApp:
             st.error(f"🔴 Database initialization error: {e}")
             st.stop()
         
-        # Initialize components
+        # Initialize components - MCP ENABLED
         try:
-            self.query_processor = QueryProcessor()
+            self.mcp_processor = mcp_query_processor  # MCP Query Processor
             self.sidebar = Sidebar()
-            self.chat_interface = ChatInterface(self.query_processor)
+            self.mcp_chat_interface = MCPChatInterface()  # MCP Chat Interface
             self.map_view = MapView()
             self.profile_viewer = ProfileViewer()
+            self.advanced_viz = AdvancedVizPanel()  # Advanced Visualizations
         except Exception as e:
             st.error(f"🔴 Component initialization error: {e}")
             st.stop()
         
         # Analytics
         self._init_analytics()
+        
+        print("✅ FloatChat initialized with MCP support")
+    
+    def _render_advanced_viz_tab(self):
+        """Advanced visualization tab"""
+        st.subheader("🔬 Advanced Oceanographic Visualizations")
+        
+        if st.session_state.get('last_query_results') is not None:
+            results = st.session_state.last_query_results
+            if results['success'] and not results['results'].empty:
+                self.advanced_viz.render(results['results'])
+            else:
+                st.info("🔍 No data to display. Run a query in the Chat tab first.")
+        else:
+            self._render_empty_state("advanced visualizations")
+
+
+
+
+
+
+
+
     
     def _init_analytics(self):
         """Initialize analytics tracking"""
@@ -897,10 +953,38 @@ class ProductionFloatChatApp:
         self.sidebar.render()
         
         # Main content area - Enhanced Tabs
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "💬 Intelligent Chat",
+        # tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        #     "💬 Intelligent Chat",
+        #     "🗺️ Geographic Explorer",
+        #     "📊 Profile Analysis",
+        #     "📈 Data Analytics",
+        #     "📥 Export & Reports"
+        # ])
+        
+        # with tab1:
+        #     self._render_chat_tab()
+        
+        # with tab2:
+        #     self._render_map_tab()
+        
+        # with tab3:
+        #     self._render_profile_tab()
+        
+        # with tab4:
+        #     self._render_analytics_tab()
+        
+        # with tab5:
+        #     self._render_export_tab()
+        
+        # # Footer with session info
+        # self._render_footer()
+        
+        # Main content area - Enhanced Tabs with MCP
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+            "💬 Intelligent Chat (MCP)",
             "🗺️ Geographic Explorer",
             "📊 Profile Analysis",
+            "🔬 Advanced Visualizations",
             "📈 Data Analytics",
             "📥 Export & Reports"
         ])
@@ -915,13 +999,20 @@ class ProductionFloatChatApp:
             self._render_profile_tab()
         
         with tab4:
-            self._render_analytics_tab()
+            self._render_advanced_viz_tab()
         
         with tab5:
-            self._render_export_tab()
+            self._render_analytics_tab()
         
-        # Footer with session info
-        self._render_footer()
+        with tab6:
+            self._render_export_tab()
+
+
+
+
+
+
+
     
     def _render_status_indicator(self):
         """Show system status"""
@@ -943,9 +1034,70 @@ class ProductionFloatChatApp:
                 unsafe_allow_html=True
             )
     
+    # def _render_chat_tab(self):
+    #     """Enhanced chat interface"""
+    #     st.subheader("🤖 Ask Questions About ARGO Data")
+        
+    #     # Quick action buttons
+    #     col1, col2, col3, col4 = st.columns(4)
+        
+    #     with col1:
+    #         if st.button("🌊 Recent Data", use_container_width=True):
+    #             st.session_state.quick_query = "Show me data from the last 30 days"
+    #     with col2:
+    #         if st.button("📍 Arabian Sea", use_container_width=True):
+    #             st.session_state.quick_query = "Show profiles in Arabian Sea"
+    #     with col3:
+    #         if st.button("📊 Statistics", use_container_width=True):
+    #             st.session_state.quick_query = "Show me temperature statistics by region"
+    #     with col4:
+    #         if st.button("🔍 Deep Profiles", use_container_width=True):
+    #             st.session_state.quick_query = "Show profiles deeper than 1000m"
+        
+    #     # Example queries in expander
+    #     with st.expander("💡 Example Queries & Tips", expanded=False):
+    #         st.markdown("""
+    #         **Geographic Queries:**
+    #         - Show me salinity profiles in the Arabian Sea
+    #         - Find floats between 10°N-20°N and 60°E-80°E
+    #         - What's the data coverage in Bay of Bengal?
+            
+    #         **Temporal Queries:**
+    #         - Show recent data from last month
+    #         - Temperature trends in March 2023
+    #         - Compare winter vs summer profiles
+            
+    #         **Statistical Queries:**
+    #         - Average temperature by depth in Indian Ocean
+    #         - Salinity range in equatorial regions
+    #         - Count of profiles by region
+            
+    #         **Profile Analysis:**
+    #         - Show temperature profile for float 2902696
+    #         - Compare salinity at different depths
+    #         - Find deepest measurements
+            
+    #         **BGC Queries:**
+    #         - Show dissolved oxygen levels
+    #         - Chlorophyll distribution in coastal areas
+    #         - pH measurements in Southern Ocean
+            
+    #         **💡 Tips:**
+    #         - Be specific about regions, dates, and parameters
+    #         - Use depth or pressure for vertical queries
+    #         - Combine multiple conditions for precise results
+    #         """)
+        
+    #     # Render chat
+    #     self.chat_interface.render()
+        
+    #     # Query performance metrics
+    #     if st.session_state.get('last_query_results'):
+    #         self._render_query_metrics()
+    
     def _render_chat_tab(self):
-        """Enhanced chat interface"""
-        st.subheader("🤖 Ask Questions About ARGO Data")
+        """Enhanced chat interface with MCP"""
+        st.subheader("🤖 AI-Powered Query Interface (MCP Enabled)")
         
         # Quick action buttons
         col1, col2, col3, col4 = st.columns(4)
@@ -957,53 +1109,64 @@ class ProductionFloatChatApp:
             if st.button("📍 Arabian Sea", use_container_width=True):
                 st.session_state.quick_query = "Show profiles in Arabian Sea"
         with col3:
-            if st.button("📊 Statistics", use_container_width=True):
-                st.session_state.quick_query = "Show me temperature statistics by region"
+            if st.button("📊 Calculate Thermocline", use_container_width=True):
+                st.session_state.quick_query = "Calculate thermocline for Bay of Bengal"
         with col4:
-            if st.button("🔍 Deep Profiles", use_container_width=True):
-                st.session_state.quick_query = "Show profiles deeper than 1000m"
+            if st.button("🔬 Water Masses", use_container_width=True):
+                st.session_state.quick_query = "Identify water masses in Arabian Sea"
         
-        # Example queries in expander
-        with st.expander("💡 Example Queries & Tips", expanded=False):
+        # Example queries
+        with st.expander("💡 MCP-Powered Query Examples", expanded=False):
             st.markdown("""
-            **Geographic Queries:**
-            - Show me salinity profiles in the Arabian Sea
-            - Find floats between 10°N-20°N and 60°E-80°E
-            - What's the data coverage in Bay of Bengal?
+            **Basic Queries:**
+            - Show me temperature profiles in the Arabian Sea
+            - What is the database structure?
+            - Find recent data from October 2025
             
-            **Temporal Queries:**
-            - Show recent data from last month
-            - Temperature trends in March 2023
-            - Compare winter vs summer profiles
-            
-            **Statistical Queries:**
-            - Average temperature by depth in Indian Ocean
-            - Salinity range in equatorial regions
-            - Count of profiles by region
-            
-            **Profile Analysis:**
-            - Show temperature profile for float 2902696
-            - Compare salinity at different depths
-            - Find deepest measurements
+            **Advanced Analytics (MCP Tools):**
+            - Calculate thermocline characteristics for Bay of Bengal
+            - Identify water masses in the Indian Ocean
+            - Compare temperature between Arabian Sea and Bay of Bengal
+            - Analyze temporal trends in dissolved oxygen
+            - Calculate mixed layer depth for recent profiles
             
             **BGC Queries:**
-            - Show dissolved oxygen levels
-            - Chlorophyll distribution in coastal areas
-            - pH measurements in Southern Ocean
+            - Show dissolved oxygen levels in Arabian Sea
+            - Get chlorophyll and pH data for coastal regions
             
-            **💡 Tips:**
-            - Be specific about regions, dates, and parameters
-            - Use depth or pressure for vertical queries
-            - Combine multiple conditions for precise results
+            **Profile Analysis:**
+            - Analyze float 2902696 profile statistics
+            - Find profiles similar to warm tropical surface water
+            
+            **💡 MCP automatically selects the right tools for your question!**
             """)
         
-        # Render chat
-        self.chat_interface.render()
+        # Render MCP chat interface
+        self.mcp_chat_interface.render()
         
         # Query performance metrics
         if st.session_state.get('last_query_results'):
-            self._render_query_metrics()
-    
+            results = st.session_state.last_query_results
+            if results.get('mcp_enabled'):
+                st.markdown("---")
+                col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("🔧 MCP Tools Used", len(results.get('tools_used', [])))
+            with col2:
+                st.metric("📊 Records Retrieved", 
+                         len(results['results']) if 'results' in results else 0)
+            with col3:
+                tools_str = ", ".join(results.get('tools_used', []))
+                st.info(f"Tools: {tools_str}")
+
+
+
+
+
+
+
+
+
     def _render_query_metrics(self):
         """Show query performance metrics"""
         result = st.session_state.last_query_results

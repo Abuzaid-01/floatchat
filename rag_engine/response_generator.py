@@ -16,10 +16,12 @@ class ResponseGenerator:
         self.llm = ChatGoogleGenerativeAI(
             model=os.getenv('GEMINI_MODEL', 'gemini-2.5-flash'),
             temperature=0.7,  # Higher for natural responses
-            google_api_key=os.getenv('GOOGLE_API_KEY')
+            google_api_key=os.getenv('GOOGLE_API_KEY'),
+            timeout=30,  # 30 second timeout to prevent hanging
+            max_retries=2  # Only retry twice to avoid long waits
         )
         
-        print(f"✅ Response Generator using: {os.getenv('GEMINI_MODEL')}")
+        print(f"✅ Response Generator using: {os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')}")
         
         self.prompt_template = PromptTemplate(
             input_variables=["question", "context", "query_results"],
@@ -44,7 +46,7 @@ class ResponseGenerator:
             Natural language response
         """
         try:
-            # Format query results
+            # Format query results (optimized to prevent timeouts)
             results_summary = self._format_results(query_results)
             
             # Generate response using Gemini
@@ -54,36 +56,110 @@ class ResponseGenerator:
                 query_results=results_summary
             )
             
+            print(f"🤖 Generating AI response (prompt size: {len(formatted_prompt)} chars)...")
             response = self.llm.invoke(formatted_prompt)
             return response.content
             
         except Exception as e:
-            print(f"❌ Error generating response: {e}")
-            return "I encountered an error while generating the response."
+            error_msg = str(e)
+            print(f"❌ Error generating response: {error_msg}")
+            
+            # If timeout, return a structured fallback response
+            if "timeout" in error_msg.lower() or "504" in error_msg or "deadline" in error_msg.lower():
+                return self._generate_fallback_response(question, query_results)
+            
+            return "I encountered an error while generating the response. Please try again."
     
-    def _format_results(self, df: pd.DataFrame, max_rows: int = 10) -> str:
-        """Format DataFrame results for Gemini"""
+    def _generate_fallback_response(self, question: str, df: pd.DataFrame) -> str:
+        """Generate a fallback response when LLM times out"""
+        if df.empty:
+            return "No data found matching your query."
+        
+        response_parts = [
+            f"✅ **Query Results**",
+            f"",
+            f"Found **{len(df)} records** matching your query.",
+            f""
+        ]
+        
+        # Add geographic info
+        if 'latitude' in df.columns and 'longitude' in df.columns:
+            response_parts.append(f"**Geographic Coverage:**")
+            response_parts.append(f"- Latitude: {df['latitude'].min():.2f}°N to {df['latitude'].max():.2f}°N")
+            response_parts.append(f"- Longitude: {df['longitude'].min():.2f}°E to {df['longitude'].max():.2f}°E")
+            response_parts.append("")
+        
+        # Add key statistics
+        if 'temperature' in df.columns:
+            response_parts.append(f"**Temperature:**")
+            response_parts.append(f"- Range: {df['temperature'].min():.2f}°C to {df['temperature'].max():.2f}°C")
+            response_parts.append(f"- Average: {df['temperature'].mean():.2f}°C")
+            response_parts.append("")
+        
+        if 'salinity' in df.columns:
+            response_parts.append(f"**Salinity:**")
+            response_parts.append(f"- Range: {df['salinity'].min():.2f} to {df['salinity'].max():.2f} PSU")
+            response_parts.append(f"- Average: {df['salinity'].mean():.2f} PSU")
+            response_parts.append("")
+        
+        if 'pressure' in df.columns:
+            response_parts.append(f"**Depth (Pressure):**")
+            response_parts.append(f"- Range: {df['pressure'].min():.2f} to {df['pressure'].max():.2f} dbar")
+            response_parts.append("")
+        
+        if 'float_id' in df.columns:
+            unique_floats = df['float_id'].nunique()
+            response_parts.append(f"**Floats:** {unique_floats} unique float(s)")
+            response_parts.append("")
+        
+        response_parts.append("*Note: Full AI analysis unavailable due to response generation timeout. The data has been successfully retrieved and is available for visualization.*")
+        
+        return "\n".join(response_parts)
+    
+    def _format_results(self, df: pd.DataFrame, max_rows: int = 5) -> str:
+        """Format DataFrame results for Gemini - OPTIMIZED to prevent timeouts"""
         if df.empty:
             return "No data found matching the query."
         
         summary_parts = [
-            f"Total records: {len(df)}",
+            f"📊 Query Results: {len(df)} records retrieved",
             f"Columns: {', '.join(df.columns)}",
-            "\nSummary Statistics:"
+            ""
         ]
         
-        # Add numeric statistics
-        numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
-        for col in numeric_cols:
-            summary_parts.append(
-                f"- {col}: min={df[col].min():.2f}, "
-                f"max={df[col].max():.2f}, "
-                f"mean={df[col].mean():.2f}"
-            )
+        # Add geographic info if available
+        if 'latitude' in df.columns and 'longitude' in df.columns:
+            summary_parts.append(f"Geographic Coverage:")
+            summary_parts.append(f"  • Latitude: {df['latitude'].min():.2f}°N to {df['latitude'].max():.2f}°N")
+            summary_parts.append(f"  • Longitude: {df['longitude'].min():.2f}°E to {df['longitude'].max():.2f}°E")
+            summary_parts.append("")
         
-        # Add sample data
-        summary_parts.append(f"\nSample Data (first {min(max_rows, len(df))} rows):")
-        summary_parts.append(df.head(max_rows).to_string())
+        # Add numeric statistics (CONDENSED)
+        summary_parts.append("Key Statistics:")
+        numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+        for col in numeric_cols[:5]:  # Limit to 5 columns to prevent timeout
+            if col in df.columns and df[col].notna().sum() > 0:
+                summary_parts.append(
+                    f"  • {col}: {df[col].min():.2f} to {df[col].max():.2f} "
+                    f"(avg: {df[col].mean():.2f})"
+                )
+        
+        # Add float/profile info if available
+        if 'float_id' in df.columns:
+            unique_floats = df['float_id'].nunique()
+            summary_parts.append(f"\n  • Unique floats: {unique_floats}")
+        
+        # Add ONLY 3 sample rows (not 10) to minimize token usage
+        summary_parts.append(f"\nSample Data (first {min(max_rows, len(df))} of {len(df)} records):")
+        
+        # Format sample data compactly
+        sample_df = df.head(max_rows)
+        for idx, row in sample_df.iterrows():
+            row_str = " | ".join([f"{col}: {row[col]}" for col in df.columns[:6]])  # Max 6 columns
+            summary_parts.append(f"  {row_str}")
+        
+        if len(df) > max_rows:
+            summary_parts.append(f"  ... and {len(df) - max_rows} more records")
         
         return "\n".join(summary_parts)
     

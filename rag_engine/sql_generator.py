@@ -114,22 +114,23 @@ class AdvancedSQLGenerator:
     - latitude (FLOAT) - Latitude (-90 to 90)
     - longitude (FLOAT) - Longitude (-180 to 180)
     - timestamp (TIMESTAMP) - Measurement datetime
-    - pressure (FLOAT) - Water pressure in dbar
+    - pressure (FLOAT) - Water pressure in dbar (1 dbar ≈ 1 meter depth)
     - temperature (FLOAT) - Temperature in Celsius
     - salinity (FLOAT) - Salinity in PSU (Practical Salinity Units)
     
-    BGC Parameters:
+    BGC Parameters (may be NULL):
     - dissolved_oxygen (FLOAT) - DO in μmol/kg
     - chlorophyll (FLOAT) - Chlorophyll-a in mg/m³
     - ph (FLOAT) - pH value (seawater pH scale)
-    - nitrate (FLOAT) - Nitrate concentration in μmol/L
-    - bbp700 (FLOAT) - Backscatter at 700nm
     
     Metadata:
     - data_mode (VARCHAR) - R/D/A (Realtime/Delayed/Adjusted)
     - platform_type (VARCHAR) - ARGO or BGC
     - temp_qc (INTEGER) - Temperature QC flag (1=good, 2=probably good, 3=questionable, 4=bad)
     - sal_qc (INTEGER) - Salinity QC flag (same scale)
+    - created_at (TIMESTAMP) - Record creation time
+    
+    IMPORTANT: Only use columns listed above. Do NOT use nitrate, bbp700, or other unlisted columns.
     
     Indexes:
     - idx_lat_lon (latitude, longitude) - Geographic queries
@@ -166,14 +167,18 @@ Context from similar profiles:
 CRITICAL SQL RULES:
 1. ALWAYS use PostgreSQL syntax (NOT MySQL)
 2. ALWAYS include LIMIT (default 1000, max 10000)
-3. Proper NULL handling: col IS NOT NULL
-4. Date format: 'YYYY-MM-DD'
-5. Case-insensitive searches: ILIKE instead of LIKE
-6. Quality control filtering: WHERE temp_qc IN (1,2) for good data
-7. Geographic queries: lat BETWEEN X AND Y, lon BETWEEN X AND Y
-8. Aggregations: Always GROUP BY related columns
-9. Aliases: Use meaningful aliases
-10. Comments: Add -- comments for complex logic
+3. ONLY use columns from the schema above - DO NOT use nitrate, bbp700, or other unlisted columns
+4. Proper NULL handling: col IS NOT NULL
+5. Date format: 'YYYY-MM-DD'
+6. Case-insensitive searches: ILIKE instead of LIKE
+7. Quality control filtering: WHERE temp_qc IN (1,2,3) AND sal_qc IN (1,2,3) for good data (1=good, 2=probably good, 3=probably bad but usable)
+8. Geographic queries: lat BETWEEN X AND Y, lon BETWEEN X AND Y
+9. Aggregations: Always GROUP BY related columns
+10. Aliases: Use meaningful aliases
+11. Comments: Add -- comments for complex logic
+12. **FLOAT_ID FORMAT**: Float IDs are stored as "b'XXXXXX '" (with b' prefix, closing ', and trailing space)
+    Example: float_id = 'b''6904092 ''' (note the double quotes for escaping)
+    For float 6904092, use: WHERE float_id = 'b''6904092 '''
 
 Common Query Patterns:
 

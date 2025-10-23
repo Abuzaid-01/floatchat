@@ -12,7 +12,16 @@ class FAISSVectorStore:
         self.dimension = dimension
         self.index = None
         self.metadata = []
-        self.store_path = Path(os.getenv('VECTOR_STORE_PATH', './data/vector_store'))
+        
+        # Get vector store path, handle both relative and absolute
+        store_path_str = os.getenv('VECTOR_STORE_PATH', './data/vector_store')
+        self.store_path = Path(store_path_str)
+        
+        # If relative path and doesn't exist, try from project root
+        if not self.store_path.is_absolute() and not self.store_path.exists():
+            project_root = Path(__file__).parent.parent
+            self.store_path = project_root / store_path_str.lstrip('./')
+        
         self.store_path.mkdir(parents=True, exist_ok=True)
     
     def create_index(self):
@@ -68,15 +77,21 @@ class FAISSVectorStore:
         metadata_path = self.store_path / "metadata.pkl"
         
         if not index_path.exists() or not metadata_path.exists():
-            print("❌ Vector store not found")
+            print(f"❌ Vector store not found at {self.store_path}")
+            print(f"   Index exists: {index_path.exists()}")
+            print(f"   Metadata exists: {metadata_path.exists()}")
             return False
         
-        self.index = faiss.read_index(str(index_path))
-        with open(metadata_path, 'rb') as f:
-            self.metadata = pickle.load(f)
-        
-        print(f"✅ Loaded vector store with {self.index.ntotal} vectors")
-        return True
+        try:
+            self.index = faiss.read_index(str(index_path))
+            with open(metadata_path, 'rb') as f:
+                self.metadata = pickle.load(f)
+            
+            print(f"✅ Loaded vector store with {self.index.ntotal} vectors")
+            return True
+        except Exception as e:
+            print(f"❌ Error loading vector store: {e}")
+            return False
 
 # Usage
 if __name__ == "__main__":
