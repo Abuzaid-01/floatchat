@@ -6,7 +6,7 @@ from database.db_setup import DatabaseSetup
 from vector_store.vector_db import FAISSVectorStore
 from vector_store.embeddings import EmbeddingGenerator
 # from rag_engine.sql_generator import SQLGenerator
-from rag_engine.sql_generator import AdvancedSQLGenerator
+from rag_engine.sql_generator import EnhancedSQLGenerator
 import pandas as pd
 import time
 
@@ -22,7 +22,7 @@ class QueryProcessor:
         self.vector_store.load()
         self.embedding_generator = EmbeddingGenerator()
         # self.sql_generator = SQLGenerator()
-        self.sql_generator = AdvancedSQLGenerator()
+        self.sql_generator = EnhancedSQLGenerator()
     
     def process_query(self, user_query: str, top_k: int = 3) -> Dict:
         """

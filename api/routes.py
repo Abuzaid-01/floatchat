@@ -221,7 +221,7 @@ async def analyze_thermocline(query: str):
         result = query_processor.process_query(query)
         
         if result['success']:
-            thermocline = analytics.calculate_thermocline(result['results'])
+            thermocline = analytics.calculate_thermocline_advanced(result['results'])
             return {
                 "success": True,
                 "thermocline": thermocline,

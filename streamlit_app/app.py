@@ -601,6 +601,8 @@ import plotly.graph_objects as go
 # Add project root to path FIRST (before any local imports)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from data_processing.netcdf_exporter import NetCDFExporter, export_dataframe_to_netcdf, export_dataframe_to_ascii
+
 from streamlit_app.components.mcp_chat_interface import MCPChatInterface, render_mcp_capabilities
 from streamlit_app.components.advanced_viz_panel import AdvancedVizPanel
 from mcp_server.mcp_query_processor import mcp_query_processor
@@ -1412,8 +1414,71 @@ class ProductionFloatChatApp:
         
         st.plotly_chart(fig, use_container_width=True)
     
+    # def _render_export_tab(self):
+    #     """Export and reporting"""
+    #     st.subheader("📥 Export Data & Generate Reports")
+        
+    #     if st.session_state.get('last_query_results') is not None:
+    #         results = st.session_state.last_query_results
+    #         if results['success'] and not results['results'].empty:
+    #             df = results['results']
+                
+    #             st.markdown("### 💾 Download Options")
+                
+    #             col1, col2, col3 = st.columns(3)
+                
+    #             with col1:
+    #                 csv = df.to_csv(index=False)
+    #                 st.download_button(
+    #                     label="📄 Download CSV",
+    #                     data=csv,
+    #                     file_name=f"argo_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+    #                     mime="text/csv",
+    #                     use_container_width=True
+    #                 )
+                
+    #             with col2:
+    #                 json_data = df.to_json(orient='records', indent=2)
+    #                 st.download_button(
+    #                     label="📋 Download JSON",
+    #                     data=json_data,
+    #                     file_name=f"argo_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+    #                     mime="application/json",
+    #                     use_container_width=True
+    #                 )
+                
+    #             with col3:
+    #                 excel_buffer = self._create_excel_export(df)
+    #                 st.download_button(
+    #                     label="📊 Download Excel",
+    #                     data=excel_buffer,
+    #                     file_name=f"argo_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+    #                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    #                     use_container_width=True
+    #                 )
+                
+    #             # Report generation
+    #             st.markdown("---")
+    #             st.markdown("### 📑 Generate Report")
+                
+    #             if st.button("🎯 Generate Summary Report", use_container_width=True):
+    #                 report = self._generate_summary_report(df)
+    #                 st.markdown(report)
+                    
+    #                 st.download_button(
+    #                     label="📥 Download Report (MD)",
+    #                     data=report,
+    #                     file_name=f"argo_report_{datetime.now().strftime('%Y%m%d')}.md",
+    #                     mime="text/markdown",
+    #                     use_container_width=True
+    #                 )
+    #         else:
+    #             st.info("🔍 No data to export. Run a query first.")
+    #     else:
+    #         self._render_empty_state("export")
+    
     def _render_export_tab(self):
-        """Export and reporting"""
+        """Export and reporting - ENHANCED with NetCDF"""
         st.subheader("📥 Export Data & Generate Reports")
         
         if st.session_state.get('last_query_results') is not None:
@@ -1423,29 +1488,135 @@ class ProductionFloatChatApp:
                 
                 st.markdown("### 💾 Download Options")
                 
-                col1, col2, col3 = st.columns(3)
+                # Create tabs for different export formats
+                export_tab1, export_tab2, export_tab3, export_tab4 = st.tabs([
+                    "📄 CSV/JSON", "🌊 NetCDF", "📋 ARGO ASCII", "📊 Excel"
+                ])
                 
-                with col1:
-                    csv = df.to_csv(index=False)
-                    st.download_button(
-                        label="📄 Download CSV",
-                        data=csv,
-                        file_name=f"argo_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv",
-                        use_container_width=True
-                    )
+                with export_tab1:
+                    st.markdown("#### Standard Formats")
+                    col1, col2 = st.columns(2)
                 
-                with col2:
-                    json_data = df.to_json(orient='records', indent=2)
-                    st.download_button(
-                        label="📋 Download JSON",
-                        data=json_data,
-                        file_name=f"argo_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                        mime="application/json",
-                        use_container_width=True
-                    )
+                    with col1:
+                        csv = df.to_csv(index=False)
+                        st.download_button(
+                            label="📄 Download CSV",
+                            data=csv,
+                            file_name=f"argo_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv",
+                            use_container_width=True
+                        )
+                        st.caption(f"Comma-separated values • {len(csv)} bytes")
                 
-                with col3:
+                    with col2:
+                        json_data = df.to_json(orient='records', indent=2)
+                        st.download_button(
+                            label="📋 Download JSON",
+                            data=json_data,
+                            file_name=f"argo_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                            mime="application/json",
+                            use_container_width=True
+                        )
+                        st.caption(f"JSON format • {len(json_data)} bytes")
+                
+                with export_tab2:
+                    st.markdown("#### NetCDF Format (CF-Compliant)")
+                    st.info("📦 NetCDF export creates ARGO-compliant files with full metadata")
+                
+                    # NetCDF export options
+                    include_bgc = st.checkbox("Include BGC parameters", value=True)
+                    add_metadata = st.checkbox("Add custom metadata", value=False)
+                
+                    custom_metadata = {}
+                    if add_metadata:
+                        custom_metadata['author'] = st.text_input("Author", "FloatChat User")
+                        custom_metadata['project'] = st.text_input("Project", "Smart India Hackathon 2025")
+                        custom_metadata['purpose'] = st.text_area("Purpose", "ARGO data analysis")
+                
+                    if st.button("🌊 Generate NetCDF File", use_container_width=True):
+                        with st.spinner("Creating NetCDF file..."):
+                            try:
+                                from data_processing.netcdf_exporter import NetCDFExporter
+                                from io import BytesIO
+                                import tempfile
+                            
+                                # Create temporary file
+                                with tempfile.NamedTemporaryFile(suffix='.nc', delete=False) as tmp:
+                                    exporter = NetCDFExporter()
+                                    success = exporter.export_to_netcdf(
+                                        df, 
+                                        tmp.name,
+                                        metadata=custom_metadata if custom_metadata else None
+                                    )
+                                
+                                    if success:
+                                        # Read file for download
+                                        with open(tmp.name, 'rb') as f:
+                                            netcdf_data = f.read()
+                                    
+                                        st.download_button(
+                                            label="📥 Download NetCDF File",
+                                            data=netcdf_data,
+                                            file_name=f"argo_profiles_{datetime.now().strftime('%Y%m%d_%H%M%S')}.nc",
+                                            mime="application/x-netcdf",
+                                            use_container_width=True
+                                        )
+                                    
+                                        st.success(f"✅ NetCDF file created successfully ({len(netcdf_data) / 1024:.2f} KB)")
+                                    
+                                        # Show validation
+                                        validation = exporter.validate_netcdf(tmp.name)
+                                        with st.expander("📋 File Validation"):
+                                            st.json(validation)
+                                    else:
+                                        st.error("❌ NetCDF export failed")
+                            
+                                # Cleanup
+                                import os
+                                os.unlink(tmp.name)
+                            
+                            except Exception as e:
+                                st.error(f"❌ Error creating NetCDF: {e}")
+                                import traceback
+                                st.code(traceback.format_exc())
+                
+                with export_tab3:
+                    st.markdown("#### ARGO ASCII Format")
+                    st.info("📄 ARGO-specific ASCII format for data exchange")
+                
+                    if st.button("📋 Generate ARGO ASCII", use_container_width=True):
+                        with st.spinner("Creating ASCII file..."):
+                            try:
+                                from data_processing.netcdf_exporter import NetCDFExporter
+                                import tempfile
+                            
+                                with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp:
+                                    exporter = NetCDFExporter()
+                                    exporter._write_argo_ascii(df, Path(tmp.name))
+                                
+                                    with open(tmp.name, 'r') as f:
+                                        ascii_data = f.read()
+                                
+                                    st.download_button(
+                                        label="📥 Download ARGO ASCII",
+                                        data=ascii_data,
+                                        file_name=f"argo_ascii_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                        mime="text/plain",
+                                        use_container_width=True
+                                    )
+                                
+                                    # Preview
+                                    with st.expander("👁️ Preview (first 20 lines)"):
+                                        st.code('\n'.join(ascii_data.split('\n')[:20]))
+                            
+                                os.unlink(tmp.name)
+                                st.success("✅ ARGO ASCII file generated")
+                            
+                            except Exception as e:
+                                st.error(f"❌ Error: {e}")
+                
+                with export_tab4:
+                    st.markdown("#### Excel Workbook")
                     excel_buffer = self._create_excel_export(df)
                     st.download_button(
                         label="📊 Download Excel",
@@ -1454,10 +1625,22 @@ class ProductionFloatChatApp:
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True
                     )
+                    st.caption("Multi-sheet workbook with data, statistics, and metadata")
                 
                 # Report generation
                 st.markdown("---")
-                st.markdown("### 📑 Generate Report")
+                st.markdown("### 📑 Generate Analysis Report")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    report_format = st.selectbox(
+                        "Report Format",
+                        ["Markdown", "HTML", "PDF (Future)"]
+                    )
+                
+                with col2:
+                    include_viz = st.checkbox("Include visualizations", value=True)
                 
                 if st.button("🎯 Generate Summary Report", use_container_width=True):
                     report = self._generate_summary_report(df)

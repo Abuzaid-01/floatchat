@@ -265,14 +265,34 @@ class ARGOMCPServer:
     # Tool Handlers
     def _handle_query_argo_data(self, query: str, limit: int = 1000) -> Dict:
         """Handle ARGO data query"""
+        import json
+        from decimal import Decimal
+        
         result = self.query_processor.process_query(query)
         
         if result['success']:
             df = result['results'].head(limit)
+            
+            # Convert DataFrame to dict, handling Decimal types
+            data_records = df.to_dict('records')
+            
+            # Convert Decimal to float for JSON serialization
+            def convert_decimals(obj):
+                if isinstance(obj, list):
+                    return [convert_decimals(item) for item in obj]
+                elif isinstance(obj, dict):
+                    return {key: convert_decimals(value) for key, value in obj.items()}
+                elif isinstance(obj, Decimal):
+                    return float(obj)
+                else:
+                    return obj
+            
+            data_records = convert_decimals(data_records)
+            
             return {
                 "success": True,
                 "record_count": len(df),
-                "data": df.to_dict('records'),
+                "data": data_records,
                 "sql": result['sql'],
                 "execution_time": result.get('execution_time', 0)
             }
@@ -458,8 +478,8 @@ class ARGOMCPServer:
         if df.empty:
             return {"success": False, "error": "No data available for thermocline calculation"}
         
-        # Calculate thermocline
-        thermocline = self.analytics.calculate_thermocline(df)
+        # Calculate thermocline using the advanced method
+        thermocline = self.analytics.calculate_thermocline_advanced(df)
         
         return {
             "success": True,
@@ -476,7 +496,8 @@ class ARGOMCPServer:
             return {"success": False, "error": result.get('error')}
         
         df = result['results']
-        water_masses = self.analytics.identify_water_masses(df)
+        # Use the advanced method for more detailed water mass identification
+        water_masses = self.analytics.identify_water_masses_advanced(df)
         
         return {
             "success": True,

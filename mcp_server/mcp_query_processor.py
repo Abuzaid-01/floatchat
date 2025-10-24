@@ -245,27 +245,70 @@ class MCPQueryProcessor:
         Generate comprehensive response from MCP tool results
         """
         
-        # Extract main data
+        # Extract main data and metadata
         main_data = None
+        sql_query = None
+        record_count = 0
+        
         if 'query_argo_data' in tool_results:
-            content = tool_results['query_argo_data'].get('content', [])
-            if content and not tool_results['query_argo_data'].get('isError'):
+            tool_result = tool_results['query_argo_data']
+            content = tool_result.get('content', [])
+            
+            if content and not tool_result.get('isError'):
                 try:
-                    data_dict = json.loads(content[0]['text'])
+                    text = content[0].get('text', '')
+                    data_dict = json.loads(text)
+                    
                     if data_dict.get('success') and data_dict.get('data'):
                         main_data = pd.DataFrame(data_dict['data'])
-                except:
-                    pass
+                        record_count = data_dict.get('record_count', len(main_data))
+                        sql_query = data_dict.get('sql', '')
+                except Exception as e:
+                    print(f"❌ Error parsing query_argo_data result: {e}")
         
-        # Build context from all tool results
+        # Build enhanced context from tool results
         context_parts = []
         
+        # Add data summary if available
+        if main_data is not None and not main_data.empty:
+            context_parts.append(f"**Query Results Summary:**")
+            context_parts.append(f"- Total records found: {record_count}")
+            
+            # Add column information
+            context_parts.append(f"- Available columns: {', '.join(main_data.columns.tolist())}")
+            
+            # Add sample statistics
+            if 'temperature' in main_data.columns:
+                temp_stats = main_data['temperature'].describe()
+                context_parts.append(f"- Temperature range: {temp_stats['min']:.2f}°C to {temp_stats['max']:.2f}°C (avg: {temp_stats['mean']:.2f}°C)")
+            
+            if 'salinity' in main_data.columns:
+                sal_stats = main_data['salinity'].describe()
+                context_parts.append(f"- Salinity range: {sal_stats['min']:.2f} to {sal_stats['max']:.2f} PSU (avg: {sal_stats['mean']:.2f} PSU)")
+            
+            if 'pressure' in main_data.columns:
+                pres_stats = main_data['pressure'].describe()
+                context_parts.append(f"- Depth range: {pres_stats['min']:.0f} to {pres_stats['max']:.0f} dbar")
+            
+            if 'float_id' in main_data.columns:
+                unique_floats = main_data['float_id'].nunique()
+                context_parts.append(f"- Unique floats: {unique_floats}")
+            
+            context_parts.append("")
+        
+        # Add other tool results
         for tool_name, result in tool_results.items():
-            if not result.get('isError'):
+            if tool_name != 'query_argo_data' and not result.get('isError'):
                 content = result.get('content', [])
                 if content:
                     text = content[0].get('text', '')
-                    context_parts.append(f"**{tool_name}**:\n{text}\n")
+                    # Try to format JSON results nicely
+                    try:
+                        data = json.loads(text)
+                        formatted_text = json.dumps(data, indent=2)
+                        context_parts.append(f"**{tool_name}**:\n```json\n{formatted_text}\n```\n")
+                    except:
+                        context_parts.append(f"**{tool_name}**:\n{text}\n")
         
         combined_context = "\n".join(context_parts)
         
