@@ -373,7 +373,9 @@ class ARGOMCPServer:
         """Handle profile analysis"""
         session = self.db_setup.get_session()
         
-        query = f"SELECT * FROM argo_profiles WHERE float_id = '{float_id}'"
+        # Float IDs are stored as string representations of bytes: "b'1901766 '"
+        # Use LIKE to match the float_id regardless of format
+        query = f"SELECT * FROM argo_profiles WHERE float_id LIKE '%{float_id}%'"
         if cycle_number:
             query += f" AND cycle_number = {cycle_number}"
         
